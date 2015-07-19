@@ -33,3 +33,7 @@ func (s *Stack) Pop() int {
 		return element
 	}
 }
+
+func (s *Stack) Clear() {
+	s.size = 0
+}
