@@ -20,7 +20,12 @@ func (s Stack) IsEmpty() bool {
 }
 
 func (s *Stack) Push(element int) {
-	s.stack = append(s.stack, element)
+	if s.size == len(s.stack) {
+		s.stack = append(s.stack, element)
+	} else {
+		s.stack[s.size] = element
+	}
+
 	s.size++
 }
 

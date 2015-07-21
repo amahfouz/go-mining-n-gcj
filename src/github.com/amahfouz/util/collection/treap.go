@@ -1,18 +1,15 @@
 package collection
 
 import (
+	"bytes"
+	"fmt"
 	"math"
 	"math/rand"
+	"strconv"
 	"time"
 )
 
-// types
-
-type Node struct {
-	key, data, priority int64
-	left, right, parent *Node
-}
-
+// "min" treap where root node is of lowest priority
 type Treap struct {
 	root               *Node
 	nextRandomPriority func() int64
@@ -67,31 +64,136 @@ func (t *Treap) Add(key, data int64) *Node {
 	} else {
 		parent.right = n
 	}
+
+	t.rebalance(n)
+
 	return n
 }
 
-func NodeEquals(first, second *Node) bool {
-	if (first == nil) != (second == nil) {
-		return false
+func (t *Treap) String() string {
+	if t.root == nil {
+		return "Empty tree"
 	}
 
-	if first == nil {
-		// both are nil
-		return true
-	}
-	// both are non-nil
+	var output bytes.Buffer
 
-	return first.data == second.data &&
-		first.key == second.key &&
-		first.priority == second.priority
+	t.Bft(func(node *Node) {
+		indent := strconv.Itoa(node.Level() * 4)
+		output.WriteString(fmt.Sprintf("%"+indent+"d (%d) %v %v\n", node.data, node.priority, node.left != nil, node.right != nil))
+	})
+
+	return output.String()
 }
 
-func DeepEquals(first, second *Node) bool {
-	if !NodeEquals(first, second) {
-		return false
+func (tree Treap) Bft(processNode func(*Node)) {
+	stack := NewNodeStack()
+	stack.Push(tree.root)
+
+	for !stack.IsEmpty() {
+		node := stack.Pop()
+		processNode(node)
+		if node.right != nil {
+			stack.Push(node.right)
+		}
+		if node.left != nil {
+			stack.Push(node.left)
+		}
+		time.Sleep(2000 * time.Millisecond)
+	}
+}
+
+// private
+
+func (t *Treap) rebalance(n *Node) {
+	for n.parent != nil && n.priority < n.parent.priority {
+		if n == n.parent.left {
+			t.rotateRight(n)
+		} else {
+			t.rotateLeft(n)
+		}
+	}
+}
+
+func (t *Treap) rotateLeft(n *Node) {
+	parent := n.parent
+	grandParent := parent.parent
+
+	// rotate
+
+	parent.right = n.left
+	n.left = parent
+
+	// update parent links
+
+	if parent.right != nil {
+		parent.right.parent = parent
+	}
+	parent.parent = n
+	n.parent = grandParent
+
+	// update grandparent
+
+	if grandParent != nil {
+		if grandParent.left == parent {
+			grandParent.left = n
+		} else {
+			grandParent.right = n
+		}
+	} else {
+		t.root = n
+	}
+}
+
+func (t *Treap) rotateRight(n *Node) {
+	parent := n.parent
+	grandParent := parent.parent
+
+	// rotate
+
+	parent.left = n.right
+	n.right = parent
+
+	// update parent links
+
+	if parent.left != nil {
+		parent.left.parent = parent
+	}
+	parent.parent = n
+	n.parent = grandParent
+
+	// update grandparent
+
+	if grandParent != nil {
+		if grandParent.left == parent {
+			grandParent.left = n
+		} else {
+			grandParent.right = n
+		}
+	} else {
+		t.root = n
+	}
+}
+
+func (t *Treap) isValid(n *Node) bool {
+	if n == nil {
+		return true
 	}
 
-	return first == nil || NodeEquals(first.parent, second.parent) &&
-		DeepEquals(first.left, second.left) &&
-		DeepEquals(first.right, second.right)
+	if n.left != nil {
+		if n.priority >= n.left.priority ||
+			n.left.data >= n.data ||
+			!t.isValid(n.left) {
+			return false
+		}
+	}
+
+	if n.right != nil {
+		if n.priority >= n.right.priority ||
+			n.right.data <= n.data ||
+			!t.isValid(n.right) {
+			return false
+		}
+	}
+
+	return true
 }
